@@ -1,20 +1,15 @@
 package nas_client;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.*;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
 import java.net.Socket;
 
 public class NAS_client {
 
 	public static void main(String args[]) {
-		String in=null,name=null,resp=null;
-		int selected;
+		String in=null;//selected option
+		String name=null;//file name
+		String resp=null;//getrespuesta ok
+		int selected;//parse of String in
 		try (Socket s=new Socket("127.0.0.1",55555);
 				InputStream is=s.getInputStream();
 				OutputStream os=s.getOutputStream();
@@ -23,11 +18,13 @@ public class NAS_client {
 				BufferedReader sysin=new BufferedReader(new InputStreamReader(System.in)))
 		{	
 			do {
-				System.out.println("Menu:\n"
-						+ "		1:Crear directorio\n"
-						+ "		2:Enviar archivo\n"
-						+ "		3:Eliminar archivo\n"
-						+ "		4:Listar archivos\n"
+				System.out.println(
+						"Menu:\n"
+						+ "		1:Crear directorio en el servidor\n"
+						+ "		2:Enviar archivo al servidor\n"
+						+ "		3:Eliminar archivo/directorio en el servidor\n"
+						+ "		4:Listar archivos del servidor\n"
+						+ "		5:Entrar en el directorio y listar archivos del servidor\n"
 						+ "		9:Salir\n");
 				in=sysin.readLine();
 				selected=parsetoint(in);
@@ -43,47 +40,45 @@ public class NAS_client {
 					bw.write(name+"\n");
 					bw.flush();
 
-					resp=br.readLine();
-
-					if(resp.equalsIgnoreCase("OK")) {
-						System.out.println("El directorio se ha creado");
-					}
-					else if(resp.equalsIgnoreCase("BAD")) {
-						System.out.println("Error, el directorio no se ha podido crear");
-					}
+					System.out.println(br.readLine());
+					
 					break;
 				case 2:
 					System.out.println("Nombre del archivo a enviar");
 
-					bw.write("s\n");//send to server
-					bw.flush();
 
 					name=sysin.readLine();
+					
 					File f=new File(name);
 					if(f.isFile()) {
-						String fileshortname[]=name.split(File.separator);
-						String filename=fileshortname[fileshortname.length-1];//nombre corto para no enviar toda la ruta absoluta del ordenador
-						bw.write(filename+"\n");
+						bw.write("s\n");//send to server
+						bw.flush();
+						bw.write(f.getName()+"\n");
+						bw.flush();
 						resp=br.readLine();
 						if(resp.equalsIgnoreCase("OK")) {//si no existe ningun archivo en el servidor con el mismo nombre
-							try(FileInputStream fos=new FileInputStream(f);){
-								byte b[]=fos.readAllBytes();
-								os.write(b);
-								os.flush();
+							try(BufferedReader filereader=new BufferedReader(new InputStreamReader(new FileInputStream(f),"UTF-8"))){
+								while(filereader.ready()) {
+									bw.write(filereader.readLine()+"\n");
+									bw.flush();
+								}
 							}
 							catch(IOException ei1) {
 								ei1.printStackTrace();
 							}
-							if(resp.equalsIgnoreCase("OK")) {
-								System.out.println("Archivo creado exitosamente");
-							}
+							System.out.println(br.readLine());
 						}
-						else if(resp.equalsIgnoreCase("EXISTS")){//existe un archivo con el mismo nombre 
-							System.out.println("El archivo ya existe (Es necesario borralo primero)");
+						else {
+							System.out.println(resp);
 						}
 					}
-					else {
+					else if(!f.exists()) {
+						System.out.println("No existe un archivo con esta ruta");
+					}
+					else if(!f.isDirectory()){
 						System.out.println("Error, no se puede enviar un directorio");}
+					else {
+						System.out.println("Error, desconocido");}
 
 
 					break;
@@ -97,17 +92,8 @@ public class NAS_client {
 					
 					bw.write(name+"\n");
 					bw.flush();
-					
-					if(resp.equalsIgnoreCase("OK")) {
-						System.out.println("Archivo borrado correctamente\n");
-						}
-					else if(resp.equalsIgnoreCase("BAD")) {
-						System.out.println("No se puede borrar el archivo\nSi es un directorio tiene que estar vacio\n");
-					}
-					else if(resp.equalsIgnoreCase("NOEXISTS")) {
-						System.out.println("No se puede borrar el archivo, no existe\n");
-					}
-					
+
+					System.out.println(br.readLine());
 
 					break;
 				case 4:
@@ -123,33 +109,66 @@ public class NAS_client {
 
 					resp=br.readLine();
 					if(resp.equalsIgnoreCase("OK")) {
-						resp=br.readLine();
 						while(br.ready()){
 							System.out.println(br.readLine());
 						}
-						}
-					else if(resp.equalsIgnoreCase("BAD")) {
-						System.out.println("No existe este directorio\n");
 					}
-					else if(resp.equalsIgnoreCase("UNREADABLE")) {
-						System.out.println("No se puede acceder a \"..\"\n");
+					else  {
+						System.out.println(resp);
 					}
 					
 					break;
+				case 5:
+					
+					bw.write("c\n");//cd+ls
+					bw.flush();
+					do {
+					System.out.println("\nNombre del directorio a entrar(Enter si es directorio actual)");
+
+
+					name=sysin.readLine();
+
+					bw.write(name+"\n");
+					bw.flush();
+
+					resp=br.readLine();
+					if(resp.equalsIgnoreCase("OK")) {
+						while(br.ready()){
+							System.out.println(br.readLine());
+						}
+						System.out.println("Si desea continuar (Y/n)");
+						in=sysin.readLine();
+					}
+					else  {
+						System.out.println(resp);
+						in="n";
+					}
+
+					
+					if(in.equalsIgnoreCase("y")) {	
+						bw.write("END\n");
+					}
+					else {
+						bw.write("CONTINUE\n");
+					}
+						bw.flush();
+					}while(in.equalsIgnoreCase("y"));
+					break;
+				case 9:
+					break;
 				default:
-					System.out.println("Error no has insertado un número");
+					System.out.println("Error no has insertado un número valido");
 					break;
 				}
 			}while(selected!=9);
 			System.out.println("Programa terminado");
-			return;
 		}
 		catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
 	private static int parsetoint(String probint) {
-		int integer=0;
+		int integer=-1;
 		try{integer=Integer.parseInt(probint);}
 		catch(NumberFormatException e1) {
 		}

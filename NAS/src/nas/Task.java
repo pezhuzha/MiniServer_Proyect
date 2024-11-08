@@ -1,7 +1,5 @@
 package nas;
 
-import java.io.File;
-import java.io.IOException;
 import java.io.*;
 import java.net.Socket;
 
@@ -32,10 +30,10 @@ public class Task implements Runnable {
 						res=br.readLine();
 						path=root.getAbsolutePath()+File.separator+res;
 						if(new File(path).mkdirs()) {
-							bw.write("OK\n");
+							bw.write("El directorio se ha creado\n");
 						}
 						else {
-							bw.write("BAD\n");
+							bw.write("Error, el directorio no se ha podido crear\n");
 						}
 						bw.flush();
 
@@ -44,22 +42,23 @@ public class Task implements Runnable {
 						res=br.readLine();
 						path=root.getAbsolutePath()+File.separator+res;
 						File comprobarRuta=new File(path);
-						if(comprobarRuta.exists()) {
-							bw.write("EXISTS\n");
+						if(comprobarRuta.exists()) {//existe un archivo con el mismo nombre 
+							bw.write("El archivo ya existe (Es necesario borralo primero)\n");
 							bw.flush();
 						}else{
 							bw.write("OK\n");
 							bw.flush();
-							FileOutputStream archivorecibido=new FileOutputStream(comprobarRuta);
-							int ended=is.read();
-							while(ended!=-1) {
-								archivorecibido.write(ended);
-								ended=is.read();
+							try(BufferedWriter archivorecibido=new BufferedWriter(new OutputStreamWriter(new FileOutputStream(comprobarRuta),"UTF-8"))){
+							while(br.ready()) {
+								archivorecibido.write(br.readLine());
 							}
-							archivorecibido.flush();
-							archivorecibido.close();
-							bw.write("OK \n");
+							archivorecibido.flush();	
+							bw.write("Archivo creado exitosamente\n");
 							bw.flush();
+							}
+							catch(IOException e1) {
+								e1.printStackTrace();
+							}	
 						}
 						break;
 					case 'r'://rm
@@ -69,15 +68,15 @@ public class Task implements Runnable {
 						File delete=new File(path);
 						if(delete.exists()) {
 							if(delete.delete()) {
-								bw.write("OK \n");
+								bw.write("Archivo borrado correctamente\n");
 								bw.flush();
 							}else {
-								bw.write("BAD \n");
+								bw.write("No se puede borrar el archivo\n");
 								bw.flush();
 							}
 						}
 						else {
-							bw.write("NOEXISTS \n");
+							bw.write("No se puede borrar el archivo, no existe\n");
 							bw.flush();
 						}
 						
@@ -88,19 +87,19 @@ public class Task implements Runnable {
 						{
 							aux=root.listFiles();
 						}
-						else if(res.contains("..")) //no dejar que acceda a directorios superiores
-						{
-							bw.write("UNREADABLE\n");
-							bw.flush();
-						}
 						else //normal
 						{
-							path=root.getAbsolutePath()+File.separator+res;
+							path=root.getCanonicalPath()+File.separator+res;
 							subdir=new File(path);
-							if(subdir!=null && subdir.canRead() && subdir.isDirectory()) {
+							if(!(subdir.getCanonicalPath()).contains(root.getCanonicalPath())) //no dejar que acceda a directorios que no sean subdirectorios de root
+							{
+								bw.write("No se puede acceder al directorio\n");
+								bw.flush();
+							}
+							else if(subdir!=null && subdir.canRead() && subdir.isDirectory()) {
 								aux=subdir.listFiles();}
 							else {//caso de leer algo que no es directorio o no se pude leer por permisos
-								bw.write("BAD\n");
+								bw.write("No existe este directorio\n");
 								bw.flush();
 							}
 						}
@@ -119,12 +118,49 @@ public class Task implements Runnable {
 							}
 							bw.flush();
 						}
-						else {
-							bw.write("BAD\n");
+						break;
+					case 'c'://cd+ls
+						do {
+						res=br.readLine();
+						if(subdir==null) {
+						subdir=new File(root.getCanonicalPath());}
+						if(!res.isBlank()) {
+						path=subdir.getCanonicalPath()+File.separator+res;
+						subdir=new File(path);//pseudoroot
+						}
+						if(!(subdir.getCanonicalPath()).contains(root.getCanonicalPath())) //no dejar que acceda a directorios que no sean subdirectorios de root
+						{
+							subdir=new File(root.getCanonicalPath());
+							bw.write("No se puede acceder al directorio\n");
 							bw.flush();
 						}
-						break;
+						else //normal
+						{
+							if(subdir!=null && subdir.canRead() && subdir.isDirectory()) {
+								aux=subdir.listFiles();}
+							else {//caso de leer algo que no es directorio o no se pude leer por permisos
+								bw.write("No existe este directorio\n");
+								bw.flush();
+							}
+						}
+						if(aux!=null) {
+							bw.write("OK\n");
+							bw.flush();
 
+							//listar todos los contenidos del directorio pedido
+							bw.write(subdir.getCanonicalPath()+"\n");
+							for(int i=0;i<aux.length;i++) {
+								if(aux[i].isDirectory()) {
+									bw.write(aux[i].getName()+File.separator+"\n");
+								}
+								else {
+									bw.write(aux[i].getName()+"\n");
+								}
+							bw.flush();
+							}
+						}
+						}while(br.readLine().equalsIgnoreCase("END"));
+						break;
 					}
 				}
 			}
