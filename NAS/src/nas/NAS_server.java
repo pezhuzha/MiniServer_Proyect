@@ -3,6 +3,7 @@ package nas;
 import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class NAS_server {
 	private static	File root=null;
@@ -17,10 +18,11 @@ public class NAS_server {
 				System.out.println("No se puede leer o escribir en el directorio");
 				System.exit(-1);
 			}
+			ConcurrentHashMap<File,Thread> chm=new ConcurrentHashMap<>();
 			try(ServerSocket ss=new ServerSocket(55555)) {
 				while(!Thread.interrupted()) {
 					try {
-						Thread th=new Thread(new Task(ss.accept(),root));
+						Thread th=new Thread(new Task(ss.accept(),root,chm));
 						th.start();
 					}
 					catch(IOException e1) {
