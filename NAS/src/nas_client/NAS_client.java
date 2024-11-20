@@ -9,6 +9,7 @@ public class NAS_client {
 		String in=null;//selected option
 		String name=null;//file name
 		String resp=null;//getrespuesta ok
+		String read=null;
 		int selected;//parse of String in
 		File f=null;
 		try (Socket s=new Socket("127.0.0.1",55555);
@@ -47,10 +48,14 @@ public class NAS_client {
 
 					resp=br.readLine();
 					if(resp.equalsIgnoreCase("OK")) {
-						System.out.println(br.readLine());
-					}else {
+						if((read=br.readLine())!=null){
+							System.out.println(read);
+						}
+					}
+					else  {
 						System.out.println(resp);
 					}
+					
 					break;
 				case 2:
 					System.out.println("Nombre del directorio a listar(Enter si es root)");
@@ -65,8 +70,8 @@ public class NAS_client {
 
 					resp=br.readLine();
 					if(resp.equalsIgnoreCase("OK")) {
-						while(br.ready()){
-							System.out.println(br.readLine());
+						while((read=br.readLine())!=null){
+							System.out.println(read);
 						}
 					}
 					else  {
@@ -118,8 +123,8 @@ public class NAS_client {
 						resp=br.readLine();
 						if(resp.equalsIgnoreCase("OK")) {//si no existe ningun archivo en el servidor con el mismo nombre
 							try(BufferedReader filereader=new BufferedReader(new InputStreamReader(new FileInputStream(f),"UTF-8"))){
-								while(filereader.ready()) {
-									bw.write(filereader.readLine()+"\n");
+								while((read=filereader.readLine())!=null) {
+									bw.write(read+"\n");
 									bw.flush();
 								}
 							}
@@ -159,8 +164,8 @@ public class NAS_client {
 						File currentdir=new File(".");
 						f=new File(currentdir.getCanonicalPath()+File.separator+name);
 						try(BufferedWriter archivorecibido=new BufferedWriter(new OutputStreamWriter(new FileOutputStream(f.getName()),"UTF-8"))){
-							while(br.ready()) {
-								archivorecibido.write(br.readLine()+"\n");
+							while((read=br.readLine())!=null) {
+								archivorecibido.write(read+"\n");
 							}
 							archivorecibido.flush();	
 							System.out.println("Archivo creado exitosamente");

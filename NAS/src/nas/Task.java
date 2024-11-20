@@ -6,19 +6,26 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class Task implements Runnable {
 	private Socket s;
+	
 	private File root;
-	private ConcurrentHashMap<File,Thread> conhashmap;
-
-	Task(Socket soc, File ro,ConcurrentHashMap<File,Thread> hm) {
+	
+	//conhashmap: File es el archivo que no quieres que se borre y String puede ser el nombre del Thread actual que esta borrando el archivo/directorio o 
+	//la variable READ que lo usas para marcar que alguno de los hilos lo esta usando y no quiere que le borres el archivo/directorio
+	private ConcurrentHashMap<File,String> conhashmap;// se usa para intentar conseguir integridad en los archivos
+	
+	private final String READ="*/x-.";//se usa para poder denegar la eliminacion de un archivo o directorio
+	
+	Task(Socket soc, File ro,ConcurrentHashMap<File,String> hm) {
 		this.s = soc;
 		this.root = ro;
 		this.conhashmap=hm;
 	}
 
 	public void run() {
-		String res=null;
+		String res=null;//recoger las respuestas que le envia el cliente
 		String path=null;
-		File aux[]=null;
+		String read=null;//lectura de ficheros
+		File aux[]=null;//listar directorios
 		File subdir=null;
 		File comprobarRuta=null;
 		File pseudoroot=root;
@@ -51,25 +58,26 @@ public class Task implements Runnable {
 							bw.write("El archivo ya existe (Es necesario borralo primero)\n");
 							bw.flush();
 						}else{
-							if(conhashmap.putIfAbsent(comprobarRuta, Thread.currentThread())!=Thread.currentThread()) {
-								bw.write("No se puede borrar el archivo, otro usuario esta intentado borrar/modificar un archivo\n");
-								bw.flush();
-							}else {
+							if(dontdelete(comprobarRuta.getParentFile())) {//metodo auxiliar para guardar en el hashmap
 								bw.write("OK\n");
 								bw.flush();
 								try(BufferedWriter archivorecibido=new BufferedWriter(new OutputStreamWriter(new FileOutputStream(comprobarRuta),"UTF-8"))){
-									while(br.ready()) {
-										archivorecibido.write(br.readLine()+"\n");
+									while((read=br.readLine())!=null) {
+										archivorecibido.write(read+"\n");
 									}
 									archivorecibido.flush();
-
-									conhashmap.remove(comprobarRuta, Thread.currentThread());
 									bw.write("Archivo creado exitosamente\n");
 									bw.flush();
 								}
 								catch(IOException e1) {
 									e1.printStackTrace();
-								}}
+								}
+								candelete(comprobarRuta.getParentFile());
+							}
+							else {
+								bw.write("El directorio al que se envia esta siendo borrado\n");
+								bw.flush();
+							}
 						}
 						break;
 					case 'r'://rm
@@ -80,8 +88,8 @@ public class Task implements Runnable {
 
 
 						if(delete.exists()) {
-							if(conhashmap.putIfAbsent(delete, Thread.currentThread())!=Thread.currentThread()) {
-								bw.write("No se puede borrar el archivo, otro usuario esta intentado borrar/modificar un archivo\n");
+							if(conhashmap.putIfAbsent(delete, Thread.currentThread().toString())!=Thread.currentThread().toString()) {
+								bw.write("No se puede borrar el archivo, otro usuario esta intentado borrar/enviar el archivo\n");
 								bw.flush();
 							}
 							else if(delete.delete()) {
@@ -97,7 +105,7 @@ public class Task implements Runnable {
 							bw.flush();
 						}
 
-						conhashmap.remove(delete, Thread.currentThread());
+						conhashmap.remove(delete, Thread.currentThread().toString());
 						break;
 					case 'l'://ls
 						res=br.readLine();
@@ -115,7 +123,8 @@ public class Task implements Runnable {
 								bw.flush();
 							}
 							else if(subdir!=null && subdir.canRead() && subdir.isDirectory()) {
-								aux=subdir.listFiles();}
+								aux=subdir.listFiles();
+							}
 							else {//caso de leer algo que no es directorio o no se pude leer por permisos
 								bw.write("No existe este directorio\n");
 								bw.flush();
@@ -139,10 +148,10 @@ public class Task implements Runnable {
 						break;
 					case 'c'://cd
 						res=br.readLine();
-						if(!res.isBlank()) 
+						if(!res.isBlank()) //puedes hacer esto porque pseudoroot=root
 						{
 							path=pseudoroot.getCanonicalPath()+File.separator+res;
-							pseudoroot=new File(path);//pseudoroot
+							pseudoroot=new File(path);
 						}
 						if(!pseudoroot.exists()) {
 							pseudoroot=new File(root.getCanonicalPath());
@@ -169,17 +178,24 @@ public class Task implements Runnable {
 						path=pseudoroot.getAbsolutePath()+File.separator+res;
 						comprobarRuta=new File(path);
 						if(comprobarRuta.exists()) {
-							bw.write("OK\n");
-							bw.flush();
-							try(BufferedReader archivoEnviar=new BufferedReader(new InputStreamReader(new FileInputStream(comprobarRuta),"UTF-8"))){
-								while(archivoEnviar.ready()) {
-									bw.write(archivoEnviar.readLine()+"\n");
+							if(dontdelete(comprobarRuta)) {
+								bw.write("OK\n");
+								bw.flush();
+								try(BufferedReader archivoEnviar=new BufferedReader(new InputStreamReader(new FileInputStream(comprobarRuta),"UTF-8"))){
+									while((read=archivoEnviar.readLine()) != null) {
+										bw.write(read+"\n");
+									}
+									bw.flush();
 								}
+								catch(IOException e1) {
+									e1.printStackTrace();
+								}
+								candelete(comprobarRuta);
+							}
+							else {
+								bw.write("El archivo esta siendo borrado\n");
 								bw.flush();
 							}
-							catch(IOException e1) {
-								e1.printStackTrace();
-							}	
 						}else{
 							bw.write("El archivo no existe\n");
 							bw.flush();
@@ -206,4 +222,26 @@ public class Task implements Runnable {
 			}
 		}
 	}
+	public boolean dontdelete(File aux) {//en el hashmap impides que otros borren el archivo/directorio, no para remove
+		String uso;
+		synchronized(conhashmap){
+			if((uso=conhashmap.get(aux))==null || (conhashmap.get(aux)).contains(READ)) {
+				conhashmap.put(aux,conhashmap.get(aux) +READ);
+			}
+		}
+		return uso.contains(READ);
+	} 
+	public void candelete(File aux) {//quitas tu "voto" de no borrar el archivo,no para remove
+		String uso;
+		synchronized(conhashmap){
+			uso=conhashmap.get(aux);
+			uso.replaceFirst(READ, "");//quitas 1 "READ"
+			if(uso.isBlank()) {
+				conhashmap.remove(aux, conhashmap.get(aux));
+			}
+			else {
+				conhashmap.replace(aux, conhashmap.get(aux), uso);
+			}
+		}
+	} 
 }

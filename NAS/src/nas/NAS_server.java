@@ -18,7 +18,7 @@ public class NAS_server {
 				System.out.println("No se puede leer o escribir en el directorio");
 				System.exit(-1);
 			}
-			ConcurrentHashMap<File,Thread> chm=new ConcurrentHashMap<>();
+			ConcurrentHashMap<File,String> chm=new ConcurrentHashMap<>();
 			try(ServerSocket ss=new ServerSocket(55555)) {
 				while(!Thread.interrupted()) {
 					try {
