@@ -3,6 +3,7 @@ package nas;
 import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.net.SocketTimeoutException;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class NAS_server {
@@ -19,11 +20,15 @@ public class NAS_server {
 				System.exit(-1);
 			}
 			ConcurrentHashMap<File,String> chm=new ConcurrentHashMap<>();
+			new Thread(new Simple_interrupt()).start();
 			try(ServerSocket ss=new ServerSocket(55555)) {
+				ss.setSoTimeout(2000);//añadir timeout para poder cerrar el socket con un interrupt
 				while(!Thread.interrupted()) {
 					try {
 						Thread th=new Thread(new Task(ss.accept(),root,chm));
 						th.start();
+					}
+					catch(SocketTimeoutException e) {//Te da una exception is no aceptas una conexion en 2 segundos ...
 					}
 					catch(IOException e1) {
 						e1.printStackTrace();
@@ -36,6 +41,11 @@ public class NAS_server {
 		}
 		else {
 			System.out.println("El programa necesita un argumento que es el directorio donde trabaja");
+		}
+		Thread th[]=new Thread[Thread.activeCount()];
+		Thread.enumerate(th);
+		for(int i=0;i<th.length;i++) {
+			th[i].interrupt();
 		}
 	}
 }

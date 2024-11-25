@@ -13,7 +13,7 @@ public class Task implements Runnable {
 	//la variable READ que lo usas para marcar que alguno de los hilos lo esta usando y no quiere que le borres el archivo/directorio
 	private ConcurrentHashMap<File,String> conhashmap;// se usa para intentar conseguir integridad en los archivos
 	
-	private final String READ="*/x-.";//se usa para poder denegar la eliminacion de un archivo o directorio
+	private final String READ="/*/x-.";//se usa para poder denegar la eliminacion de un archivo o directorio
 	
 	Task(Socket soc, File ro,ConcurrentHashMap<File,String> hm) {
 		this.s = soc;
@@ -24,7 +24,6 @@ public class Task implements Runnable {
 	public void run() {
 		String res=null;//recoger las respuestas que le envia el cliente
 		String path=null;
-		String read=null;//lectura de ficheros
 		File aux[]=null;//listar directorios
 		File subdir=null;
 		File comprobarRuta=null;
@@ -33,7 +32,8 @@ public class Task implements Runnable {
 				OutputStream os=s.getOutputStream();
 				BufferedWriter bw=new BufferedWriter(new OutputStreamWriter(os,"UTF-8"));
 				BufferedReader br=new BufferedReader(new InputStreamReader(is,"UTF-8")))
-		{
+		{	
+			s.setSoTimeout(600000);//Si te conectas y no excribes en 10 min te cierra la conexion
 			do {
 				res=br.readLine();
 				if (res!=null) {
@@ -62,8 +62,8 @@ public class Task implements Runnable {
 								bw.write("OK\n");
 								bw.flush();
 								try(BufferedWriter archivorecibido=new BufferedWriter(new OutputStreamWriter(new FileOutputStream(comprobarRuta),"UTF-8"))){
-									while((read=br.readLine())!=null) {
-										archivorecibido.write(read+"\n");
+									while(br.ready()) {
+										archivorecibido.write(br.readLine()+"\n");
 									}
 									archivorecibido.flush();
 									bw.write("Archivo creado exitosamente\n");
@@ -88,7 +88,7 @@ public class Task implements Runnable {
 
 
 						if(delete.exists()) {
-							if(conhashmap.putIfAbsent(delete, Thread.currentThread().toString())!=Thread.currentThread().toString()) {
+							if(conhashmap.putIfAbsent(delete, Thread.currentThread().toString())!=null) {
 								bw.write("No se puede borrar el archivo, otro usuario esta intentado borrar/enviar el archivo\n");
 								bw.flush();
 							}
@@ -180,10 +180,9 @@ public class Task implements Runnable {
 						if(comprobarRuta.exists()) {
 							if(dontdelete(comprobarRuta)) {
 								bw.write("OK\n");
-								bw.flush();
 								try(BufferedReader archivoEnviar=new BufferedReader(new InputStreamReader(new FileInputStream(comprobarRuta),"UTF-8"))){
-									while((read=archivoEnviar.readLine()) != null) {
-										bw.write(read+"\n");
+									while(archivoEnviar.ready()) {
+										bw.write(archivoEnviar.readLine()+"\n");
 									}
 									bw.flush();
 								}
@@ -205,7 +204,7 @@ public class Task implements Runnable {
 				}
 
 			}
-			while(!s.isClosed());
+			while(!s.isClosed() && !Thread.interrupted());
 			System.out.println(s.isClosed());
 
 		}
@@ -225,11 +224,11 @@ public class Task implements Runnable {
 	public boolean dontdelete(File aux) {//en el hashmap impides que otros borren el archivo/directorio, no para remove
 		String uso;
 		synchronized(conhashmap){
-			if((uso=conhashmap.get(aux))==null || (conhashmap.get(aux)).contains(READ)) {
+			if((uso=conhashmap.get(aux))==null || uso.contains(READ)) {
 				conhashmap.put(aux,conhashmap.get(aux) +READ);
 			}
 		}
-		return uso.contains(READ);
+		return conhashmap.get(aux).contains(READ);
 	} 
 	public void candelete(File aux) {//quitas tu "voto" de no borrar el archivo,no para remove
 		String uso;
