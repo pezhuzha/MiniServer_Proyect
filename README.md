@@ -9,7 +9,6 @@ NAS_server
   Se puede cerrar escribiendo
   
     INTERRUMPIR
-    
     Confirmar
 
 NAS_client
