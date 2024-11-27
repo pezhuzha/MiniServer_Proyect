@@ -33,7 +33,7 @@ public class Task implements Runnable {
 				BufferedWriter bw=new BufferedWriter(new OutputStreamWriter(os,"UTF-8"));
 				BufferedReader br=new BufferedReader(new InputStreamReader(is,"UTF-8")))
 		{	
-			s.setSoTimeout(600000);//Si te conectas y no excribes en 10 min te cierra la conexion
+			s.setSoTimeout(600000);//Si te conectas y no escribes en 10 min te cierra la conexion
 			do {
 				res=br.readLine();
 				if (res!=null) {
@@ -58,10 +58,7 @@ public class Task implements Runnable {
 							pseudoroot=new File(root.getCanonicalPath());
 						}
 						else {
-							bw.write("OK\n");
-							bw.flush();
-
-							bw.write("Directorio actual: "+pseudoroot.getCanonicalPath()+"\n");
+							bw.write("Directorio actual: "+pseudoroot.getCanonicalPath().replace(root.getCanonicalPath(), "")+"\n");
 							bw.flush();
 						}
 						break;
@@ -81,8 +78,6 @@ public class Task implements Runnable {
 						else if(subdir!=null && subdir.canRead() && subdir.isDirectory()) {
 							aux=subdir.listFiles();
 							if(aux!=null) {
-								bw.write("OK\n");
-								bw.flush();
 
 								//listar todos los contenidos del directorio pedido
 								for(int i=0;i<aux.length;i++) {

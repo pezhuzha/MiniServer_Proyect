@@ -12,10 +12,8 @@ public class NAS_client {
 		int selected;//parse of String in
 		File f=null;
 		try (Socket s=new Socket("127.0.0.1",55555);
-				InputStream is=s.getInputStream();
-				OutputStream os=s.getOutputStream();
-				BufferedWriter bw=new BufferedWriter(new OutputStreamWriter(os,"UTF-8"));
-				BufferedReader br=new BufferedReader(new InputStreamReader(is,"UTF-8"));
+				BufferedWriter bw=new BufferedWriter(new OutputStreamWriter(s.getOutputStream(),"UTF-8"));
+				BufferedReader br=new BufferedReader(new InputStreamReader(s.getInputStream(),"UTF-8"));
 				BufferedReader sysin=new BufferedReader(new InputStreamReader(System.in)))
 		{	
 			do {
@@ -29,7 +27,7 @@ public class NAS_client {
 								+ "		4:Eliminar archivo/directorio en el servidor\n"
 								+ "		5:Enviar archivo al servidor\n"
 								+ "		6:Recibir archivo del servidor\n"
-								+ "		9:Salir\n");
+								+ "		9:Salir");
 				in=sysin.readLine();
 				selected=parsetoint(in);
 				switch(selected) {
@@ -46,74 +44,66 @@ public class NAS_client {
 					bw.write(name+"\n");
 					bw.flush();
 
-					resp=br.readLine();
-					if(resp.equalsIgnoreCase("OK")) {
+					do{
 						System.out.println(br.readLine());
-
-					}
-					else  {
-						System.out.println(resp);
-					}
-
+					}while(br.ready());
 					break;
 				case 2:
-					System.out.println("Nombre del directorio a listar(Enter si es root)");
-
 					bw.write("ls\n");//ls
 					bw.flush();
+
+					System.out.println("Nombre del directorio a listar(Enter si es root)");					
 
 					name=sysin.readLine();
 
 					bw.write(name+"\n");
 					bw.flush();
 
-					resp=br.readLine();
-					if(resp.equalsIgnoreCase("OK")) {
-						do{
-							System.out.println(br.readLine());
-						}while(br.ready());
-					}
-					else  {
-						System.out.println(resp);
-					}
+					do{
+						System.out.println(br.readLine());
+					}while(br.ready());
+
 
 					break;
 
 				case 3:
-					System.out.println("Nombre del directorio a crear");
-
 					bw.write("mkdir\n");//mkdir
 					bw.flush();
 
+					System.out.println("Nombre del directorio a crear");
+
 					name=sysin.readLine();
 
 					bw.write(name+"\n");
 					bw.flush();
 
-					System.out.println(br.readLine());
+					do{
+						System.out.println(br.readLine());
+					}while(br.ready());
 
 					break;
 				case 4:
-					System.out.println("Nombre del archivo/directorio a eliminar");
-
 					bw.write("rm\n");//rm
 					bw.flush();
+
+					System.out.println("Nombre del archivo/directorio a eliminar");
 
 					name=sysin.readLine();
 
 					bw.write(name+"\n");
 					bw.flush();
 
-					System.out.println(br.readLine());
+					do{
+						System.out.println(br.readLine());
+					}while(br.ready());
 
 					break;
 				case 5:
 					System.out.println("Nombre del archivo a enviar");
 
-
 					name=sysin.readLine();
-
 					f=new File(name);
+
 					if(f.isFile()) {
 						bw.write("send\n");//send to server
 						bw.flush();
@@ -164,11 +154,13 @@ public class NAS_client {
 					if(resp.equalsIgnoreCase("OK")) {
 						File currentdir=new File(".");//guarda el archivo en el directorio actual
 						f=new File(currentdir.getCanonicalPath()+File.separator+name);
+
 						try(BufferedWriter archivorecibido=new BufferedWriter(new OutputStreamWriter(new FileOutputStream(f.getName()),"UTF-8"))){
 							do {
 								archivorecibido.write(br.readLine()+"\n");
-							}while(br.ready());
-							archivorecibido.flush();	
+							} while(br.ready());
+							archivorecibido.flush();
+
 							System.out.println("Archivo creado exitosamente");
 						}
 						catch(IOException e1) {
@@ -188,7 +180,6 @@ public class NAS_client {
 				}
 			}while(selected!=9 && !s.isClosed());
 			System.out.println("Programa terminado");
-			Thread.currentThread().interrupt();
 		}
 		catch (IOException e) {
 			e.printStackTrace();

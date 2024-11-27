@@ -21,8 +21,8 @@ public class NAS_server {
 			}
 			ConcurrentHashMap<File,String> chm=new ConcurrentHashMap<>();
 			new Thread(new Simple_interrupt()).start();
-			try(ServerSocket ss=new ServerSocket(55555)) {
-				ss.setSoTimeout(2000);//añadir timeout para poder cerrar el socket con un interrupt
+			try(ServerSocket ss=new ServerSocket(55555)) {//Socket que usa el servidor
+				ss.setSoTimeout(2000);//añadir timeout para poder cerrar el socket con un Thread.interrupt()
 				while(!Thread.interrupted()) {
 					try {
 						Thread th=new Thread(new Task(ss.accept(),root,chm));
