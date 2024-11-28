@@ -41,44 +41,43 @@ public class Task implements Runnable {
 
 					case "cd"://cd
 						res=br.readLine();
-						if(!res.isBlank()) //puedes hacer esto porque pseudoroot=root
+						if(!res.isBlank()) //puedes hacer esto porque instancias pseudoroot=root
 						{
 							path=pseudoroot.getCanonicalPath()+File.separator+res;
 							pseudoroot=new File(path);
 						}
+						
 						if(!pseudoroot.exists()) {
 							bw.write("No existe el directorio "+pseudoroot.getName()+"\n");
-							bw.flush();
-							pseudoroot=new File(root.getCanonicalPath());
+							pseudoroot=pseudoroot.getParentFile();
 						}
 						else if(!(pseudoroot.getCanonicalPath()).contains(root.getCanonicalPath())) //no dejar que acceda a directorios que no sean subdirectorios de root
 						{
 							bw.write("No se puede acceder al directorio "+pseudoroot.getName()+"\n");
-							bw.flush();
-							pseudoroot=new File(root.getCanonicalPath());
+							pseudoroot=new File(root.getCanonicalPath());// caso permisos denegado hacer que el directorio en el que te encuentres sea root
 						}
 						else {
-							bw.write("Directorio actual: "+pseudoroot.getCanonicalPath().replace(root.getCanonicalPath(), "")+"\n");
-							bw.flush();
+							bw.write("Directorio actual: "+pseudoroot.getCanonicalPath().replace(root.getCanonicalPath(), "")+"\n");// para no mostrar nombres de directorios superiores
 						}
+						bw.flush();
 						break;
 					case "ls"://ls
 						res=br.readLine();
-						if(res.isBlank()) //caso root
+						//dar valor a subdir
+						if(res.isBlank()) //caso root si no se especifica un directorio
 						{
 							subdir=pseudoroot;
 						}else {
 							path=pseudoroot.getCanonicalPath()+File.separator+res;
 							subdir=new File(path);}
+						
 						if(!(subdir.getCanonicalPath()).contains(root.getCanonicalPath())) //no dejar que acceda a directorios que no sean subdirectorios de root
 						{
 							bw.write("No se puede acceder al directorio "+subdir.getName()+"\n");
-							bw.flush();
 						}
 						else if(subdir!=null && subdir.canRead() && subdir.isDirectory()) {
 							aux=subdir.listFiles();
 							if(aux!=null) {
-
 								//listar todos los contenidos del directorio pedido
 								for(int i=0;i<aux.length;i++) {
 									if(aux[i].isDirectory()) {
@@ -88,13 +87,12 @@ public class Task implements Runnable {
 										bw.write(aux[i].getName()+"\n");
 									}
 								}
-								bw.flush();
 							}
 						}
 						else {//caso de leer algo que no es directorio o no se pude leer por permisos
 							bw.write("No existe este directorio "+subdir.getName()+"\n");
-							bw.flush();
 						}
+						bw.flush();
 						break;
 					case "mkdir"://mkdir
 						res=br.readLine();
@@ -114,19 +112,16 @@ public class Task implements Runnable {
 
 						File delete=new File(path);
 
-
 						if(delete.exists()) {
 							if(conhashmap.putIfAbsent(delete, Thread.currentThread().toString())!=null) {
 								bw.write("No se puede borrar el archivo "+delete.getName()+", otro usuario esta intentado borrar/enviar el archivo\n");
-								bw.flush();
 							}
 							else if(delete.delete()) {
 								bw.write("Archivo "+delete.getName()+" borrado correctamente\n");
-								bw.flush();
 							}else {
 								bw.write("No se puede borrar el archivo "+delete.getName()+"\n");
-								bw.flush();
 							}
+							bw.flush();
 						}
 						else {
 							bw.write("No se puede borrar el archivo "+delete.getName()+", no existe\n");
@@ -142,38 +137,38 @@ public class Task implements Runnable {
 						if(comprobarRuta.exists()) {//existe un archivo con el mismo nombre 
 							bw.write("El archivo "+res+" ya existe (Es necesario borralo primero)\n");
 							bw.flush();
-						}else{
-							if(dontdelete(comprobarRuta.getParentFile())) {//metodo auxiliar para guardar en el hashmap
-								bw.write("OK\n");
-								bw.flush();
-								try(BufferedWriter archivorecibido=new BufferedWriter(new OutputStreamWriter(new FileOutputStream(comprobarRuta),"UTF-8"))){
-									do {
-										archivorecibido.write(br.readLine()+"\n");
-									}while(br.ready());
-									archivorecibido.flush();
-									bw.write("Archivo "+comprobarRuta.getName()+" creado exitosamente\n");
-									bw.flush();
-								}
-								catch(IOException e1) {
-									e1.printStackTrace();
-								}
-								candelete(comprobarRuta.getParentFile());
-							}
-							else {
-								bw.write("El directorio al que se envia esta siendo borrado\n");
+						}else if(dontdelete(comprobarRuta.getParentFile())) {//metodo auxiliar para guardar en el hashmap
+							bw.write("OK\n");
+							bw.flush();
+							try(BufferedWriter archivorecibido=new BufferedWriter(new OutputStreamWriter(new FileOutputStream(comprobarRuta),"UTF-8"))){
+								do {
+									archivorecibido.write(br.readLine()+"\n");
+								}while(br.ready());
+								archivorecibido.flush();
+								bw.write("Archivo "+comprobarRuta.getName()+" creado exitosamente\n");
 								bw.flush();
 							}
+							catch(IOException e1) {
+								e1.printStackTrace();
+							}
+							candelete(comprobarRuta.getParentFile());
 						}
+						else {
+							bw.write("El directorio al que se envia esta siendo borrado\n");
+							bw.flush();
+						}
+
 						break;
 					case "recive"://getfile from server
 						res=br.readLine();
 						path=pseudoroot.getAbsolutePath()+File.separator+res;
 						comprobarRuta=new File(path);
-						if(comprobarRuta.exists()) {
-							if(dontdelete(comprobarRuta)) {
+						if(comprobarRuta.exists()) {//comprobar que existe el archivo en el servidor
+
+							if(dontdelete(comprobarRuta)) {//comprobar que no este siendo borrado
 								bw.write("OK\n");
 								try(BufferedReader archivoEnviar=new BufferedReader(new InputStreamReader(new FileInputStream(comprobarRuta),"UTF-8"))){
-									 do{
+									do{
 										bw.write(archivoEnviar.readLine()+"\n");
 									}while(archivoEnviar.ready());
 									bw.flush();
@@ -181,16 +176,21 @@ public class Task implements Runnable {
 								catch(IOException e1) {
 									e1.printStackTrace();
 								}
+
 								candelete(comprobarRuta);
 							}
 							else {
 								bw.write("El archivo "+comprobarRuta.getName()+" esta siendo borrado\n");
 								bw.flush();
 							}
+
 						}else{
 							bw.write("El archivo "+comprobarRuta.getName()+" no existe\n");
 							bw.flush();
 						}
+						break;
+					case "close":
+						s.close();
 						break;
 					}
 				}

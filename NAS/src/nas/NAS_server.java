@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.SocketTimeoutException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
+import java.util.concurrent.ExecutorService;
 
 public class NAS_server {
 	private static	File root=null;
@@ -19,14 +21,15 @@ public class NAS_server {
 				System.out.println("No se puede leer o escribir en el directorio");
 				System.exit(-1);
 			}
+			ExecutorService es=null;
 			ConcurrentHashMap<File,String> chm=new ConcurrentHashMap<>();
 			new Thread(new Simple_interrupt()).start();
-			try(ServerSocket ss=new ServerSocket(55555)) {//Socket que usa el servidor
+			try(ServerSocket ss=new ServerSocket(55555);) {//Socket que usa el servidor
+				es= Executors.newCachedThreadPool();
 				ss.setSoTimeout(2000);//añadir timeout para poder cerrar el socket con un Thread.interrupt()
 				while(!Thread.interrupted()) {
 					try {
-						Thread th=new Thread(new Task(ss.accept(),root,chm));
-						th.start();
+						es.execute(new Task(ss.accept(),root,chm));
 					}
 					catch(SocketTimeoutException e) {//Te da una exception is no aceptas una conexion en 2 segundos ...
 					}
@@ -38,14 +41,14 @@ public class NAS_server {
 			catch(IOException e) {
 				e.printStackTrace();
 			}
+			finally {
+				if(es!=null) {
+					es.shutdown();}
+			}
+
 		}
 		else {
 			System.out.println("El programa necesita un argumento que es el directorio donde trabaja");
-		}
-		Thread th[]=new Thread[Thread.activeCount()];
-		Thread.enumerate(th);
-		for(int i=0;i<th.length;i++) {
-			th[i].interrupt();
 		}
 	}
 }

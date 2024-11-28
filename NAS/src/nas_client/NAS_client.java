@@ -34,7 +34,6 @@ public class NAS_client {
 				case 1:
 
 					bw.write("cd\n");//cd
-					bw.flush();
 
 					System.out.println("\nNombre del directorio a entrar(Enter si es directorio actual)");
 
@@ -50,7 +49,6 @@ public class NAS_client {
 					break;
 				case 2:
 					bw.write("ls\n");//ls
-					bw.flush();
 
 					System.out.println("Nombre del directorio a listar(Enter si es root)");					
 
@@ -68,7 +66,6 @@ public class NAS_client {
 
 				case 3:
 					bw.write("mkdir\n");//mkdir
-					bw.flush();
 
 					System.out.println("Nombre del directorio a crear");
 
@@ -84,7 +81,6 @@ public class NAS_client {
 					break;
 				case 4:
 					bw.write("rm\n");//rm
-					bw.flush();
 
 					System.out.println("Nombre del archivo/directorio a eliminar");
 
@@ -106,7 +102,6 @@ public class NAS_client {
 
 					if(f.isFile()) {
 						bw.write("send\n");//send to server
-						bw.flush();
 
 						bw.write(f.getName()+"\n");
 						bw.flush();
@@ -116,8 +111,8 @@ public class NAS_client {
 							try(BufferedReader filereader=new BufferedReader(new InputStreamReader(new FileInputStream(f),"UTF-8"))){
 								do {
 									bw.write(filereader.readLine()+"\n");
-									bw.flush();
 								}while(filereader.ready());
+								bw.flush();
 							}
 							catch(IOException ei1) {
 								ei1.printStackTrace();
@@ -140,7 +135,6 @@ public class NAS_client {
 					break;
 				case 6:
 					bw.write("recive\n");//getfile from server
-					bw.flush();
 
 					System.out.println("Nombre del archivo a recibir");
 
@@ -172,6 +166,8 @@ public class NAS_client {
 					}
 					break;
 				case 9:
+					bw.write("close\n");
+					bw.flush();
 					s.close();
 					break;
 				default:
